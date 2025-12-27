@@ -1,10 +1,59 @@
-# ConcurrencyPad - Real-Time Collaborative Text Editor
+# CoEdit - Real-Time Collaborative Text Editor
 
-A production-grade collaborative text editor demonstrating distributed systems concepts: **CRDT synchronization**, **WebSocket presence**, **low-latency messaging**, and **observable metrics**.
+A production-grade collaborative text editor demonstrating distributed systems concepts: **CRDT synchronization**, **WebSocket presence**, **low-latency messaging**, and **real-time cursor tracking**.
 
 ## 🎯 Resume One-Liner
 
-> **Built a real-time collaborative editor using Yjs CRDT achieving <50ms P50 sync latency, supporting 50+ concurrent users with WebSocket presence protocol and live observability dashboard.**
+> **Built a real-time collaborative editor using Yjs CRDT achieving <50ms P50 sync latency, supporting 50+ concurrent users with WebSocket presence protocol and live cursor tracking.**
+
+---
+
+## 🚀 Quick Start with Docker
+
+### Using Docker Compose (Recommended)
+
+```bash
+# Clone and run
+git clone <repo-url>
+cd real-time-collaboration
+
+# Start the application
+docker-compose up --build
+
+# Access the app at http://localhost:3000
+```
+
+### Using Docker Only
+
+```bash
+# Build the image
+docker build -t coedit .
+
+# Run with external MongoDB
+docker run -p 3000:80 \
+  -e MONGO_URL=mongodb://your-mongo-host:27017 \
+  -e DB_NAME=coedit \
+  coedit
+```
+
+---
+
+## 💻 Local Development
+
+### Backend
+```bash
+cd backend
+pip install -r requirements.txt
+# Create .env with MONGO_URL and DB_NAME
+python -m uvicorn server:app --host 0.0.0.0 --port 8001 --reload
+```
+
+### Frontend
+```bash
+cd frontend
+npm install --legacy-peer-deps
+npm start  # Runs on port 3000
+```
 
 ---
 

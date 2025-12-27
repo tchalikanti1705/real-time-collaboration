@@ -31,6 +31,16 @@ dist/
 dist
 
 # Environment files (comprehensive coverage)
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+.env.production
+.env.staging
+**/.env
+**/.env.*
+!**/.env.example
 
 *token.json*
 *credentials.json*
@@ -63,6 +73,9 @@ chainlit.md
 
 # Data and databases
 agenthub/agents/youtube/db
+*.db
+*.sqlite
+*.sqlite3
 
 # Archive files and large assets
 **/*.zip
@@ -76,8 +89,18 @@ agenthub/agents/youtube/db
 # Build caches
 .cache/
 
-# Mobile development
-android-sdk/ frontend/node_modules/.cache/default-development/2.pack
-frontend/node_modules/.cache/default-development/2.pack
-frontend/node_modules/.cache/default-development/0.pack
-frontend/node_modules/.cache/default-development/1.pack
+# Docker
+*.log
+mongo-data/
+
+# Secrets and keys
+*.key
+*.crt
+*.p12
+*.pfx
+secrets/
+.secrets/
+
+# OS files
+Thumbs.db
+Desktop.ini

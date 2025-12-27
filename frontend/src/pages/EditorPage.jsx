@@ -1,140 +1,177 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Badge } from '@/components/ui/badge';
-import { Separator } from '@/components/ui/separator';
-import { ScrollArea } from '@/components/ui/scroll-area';
-import { 
-  Tooltip, 
-  TooltipContent, 
-  TooltipProvider, 
-  TooltipTrigger 
-} from '@/components/ui/tooltip';
-import { toast } from 'sonner';
-import { 
-  Users, 
-  Terminal, 
-  Activity,
-  Wifi,
-  WifiOff,
-  Copy,
-  Check,
-  ChevronLeft,
-  Settings,
-  BarChart3,
-  MessageSquare,
-  Zap,
-  Clock,
-  HardDrive,
-  AlertCircle,
-  RefreshCw,
-  Play,
-  UserPlus
-} from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
 import { v4 as uuidv4 } from 'uuid';
 import * as Y from 'yjs';
-import Editor from '@/components/Editor';
-import MetricsDashboard from '@/components/MetricsDashboard';
-import PresenceSidebar from '@/components/PresenceSidebar';
-import EventLog from '@/components/EventLog';
 
-const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
-const WS_URL = BACKEND_URL.replace('https://', 'wss://').replace('http://', 'ws://');
+// Dynamic URL based on environment - works for both local dev and Docker
+const getBackendUrl = () => {
+  // In production/Docker, use relative URLs (nginx proxy handles it)
+  if (process.env.NODE_ENV === 'production') {
+    return '';
+  }
+  // In development, use localhost
+  return 'http://localhost:8001';
+};
 
-const CURSOR_COLORS = [
-  '#F43F5E', '#10B981', '#3B82F6', '#F59E0B', '#8B5CF6', '#EC4899',
-  '#06B6D4', '#84CC16', '#EF4444', '#6366F1'
-];
+const getWsUrl = () => {
+  // In production/Docker, use relative WebSocket URL
+  if (process.env.NODE_ENV === 'production') {
+    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    return `${protocol}//${window.location.host}`;
+  }
+  // In development, use localhost
+  return 'ws://localhost:8001';
+};
+
+const BACKEND_URL = getBackendUrl();
+const WS_URL = getWsUrl();
+
+// Helper functions for hex encoding/decoding (browser-compatible)
+const toHex = (uint8Array) => {
+  return Array.from(uint8Array)
+    .map(b => b.toString(16).padStart(2, '0'))
+    .join('');
+};
+
+const fromHex = (hexString) => {
+  const bytes = [];
+  for (let i = 0; i < hexString.length; i += 2) {
+    bytes.push(parseInt(hexString.substr(i, 2), 16));
+  }
+  return new Uint8Array(bytes);
+};
+
+// Get user from localStorage or redirect to home
+const getStoredUser = () => {
+  try {
+    const stored = localStorage.getItem('coedit_user');
+    if (stored) {
+      const user = JSON.parse(stored);
+      // Ensure user has all required fields
+      if (user.id && user.name && user.color) {
+        return user;
+      }
+    }
+  } catch (e) {
+    console.error('Failed to parse user from localStorage:', e);
+  }
+  return null;
+};
 
 const EditorPage = () => {
   const { roomId: urlRoomId } = useParams();
   const navigate = useNavigate();
-  const [roomId, setRoomId] = useState(urlRoomId || uuidv4().slice(0, 8));
+  const [roomId] = useState(urlRoomId || uuidv4().slice(0, 8));
   const [isConnected, setIsConnected] = useState(false);
-  const [isSyncing, setIsSyncing] = useState(false);
-  const [users, setUsers] = useState([]);
-  const [metrics, setMetrics] = useState(null);
-  const [events, setEvents] = useState([]);
-  const [copied, setCopied] = useState(false);
-  const [showMetrics, setShowMetrics] = useState(true);
-  const [showEvents, setShowEvents] = useState(false);
-  const [currentUser, setCurrentUser] = useState(null);
-  const [isSimulating, setIsSimulating] = useState(false);
+  const [content, setContent] = useState('');
+  const [darkMode, setDarkMode] = useState(false);
+  const [remoteUsers, setRemoteUsers] = useState({}); // { oderId: { name, color, cursorPosition } }
+  
+  // Get user from localStorage, redirect if not found
+  const storedUser = getStoredUser();
+  const [currentUser] = useState(() => {
+    if (!storedUser) {
+      // Will redirect in useEffect
+      return { id: '', name: 'Anonymous', color: '#3B82F6' };
+    }
+    return storedUser;
+  });
   
   const wsRef = useRef(null);
   const ydocRef = useRef(null);
-  const clientIdRef = useRef(uuidv4());
+  const ytextRef = useRef(null);
+  // Use a unique session ID for each tab (different from user ID)
+  const sessionIdRef = useRef(uuidv4());
   const reconnectTimeoutRef = useRef(null);
+  const editorRef = useRef(null);
+  const isLocalUpdateRef = useRef(false);
+  const lastSentStateRef = useRef('');
+  const cursorOverlayRef = useRef(null);
 
-  // Initialize user
-  useEffect(() => {
-    const storedUser = localStorage.getItem('concurrencypad_user');
-    if (storedUser) {
-      setCurrentUser(JSON.parse(storedUser));
-    } else {
-      const newUser = {
-        id: clientIdRef.current,
-        name: `User-${clientIdRef.current.slice(0, 6)}`,
-        color: CURSOR_COLORS[Math.floor(Math.random() * CURSOR_COLORS.length)]
-      };
-      localStorage.setItem('concurrencypad_user', JSON.stringify(newUser));
-      setCurrentUser(newUser);
-    }
+  // Calculate cursor position in pixels from character index
+  const getCursorCoordinates = useCallback((position) => {
+    const textarea = editorRef.current;
+    if (!textarea) return null;
+
+    // Create a hidden div to measure text
+    const div = document.createElement('div');
+    const style = window.getComputedStyle(textarea);
+    
+    // Copy textarea styles
+    div.style.position = 'absolute';
+    div.style.visibility = 'hidden';
+    div.style.whiteSpace = 'pre-wrap';
+    div.style.wordWrap = 'break-word';
+    div.style.width = style.width;
+    div.style.padding = style.padding;
+    div.style.fontFamily = style.fontFamily;
+    div.style.fontSize = style.fontSize;
+    div.style.lineHeight = style.lineHeight;
+    div.style.letterSpacing = style.letterSpacing;
+    
+    // Get text up to cursor position
+    const textBeforeCursor = textarea.value.substring(0, position);
+    div.textContent = textBeforeCursor;
+    
+    // Add a span at cursor position to measure
+    const span = document.createElement('span');
+    span.textContent = '|';
+    div.appendChild(span);
+    
+    document.body.appendChild(div);
+    
+    const spanRect = span.getBoundingClientRect();
+    const divRect = div.getBoundingClientRect();
+    
+    const coords = {
+      left: spanRect.left - divRect.left,
+      top: spanRect.top - divRect.top
+    };
+    
+    document.body.removeChild(div);
+    
+    return coords;
   }, []);
+
+  // Redirect to home if no user is set
+  useEffect(() => {
+    if (!storedUser) {
+      navigate('/');
+    }
+  }, [storedUser, navigate]);
 
   // Initialize Yjs document
   useEffect(() => {
     ydocRef.current = new Y.Doc();
+    ytextRef.current = ydocRef.current.getText('content');
+    
+    // Observe changes from remote
+    const observer = () => {
+      if (!isLocalUpdateRef.current) {
+        setContent(ytextRef.current.toString());
+      }
+      isLocalUpdateRef.current = false;
+    };
+    
+    ytextRef.current.observe(observer);
+    
     return () => {
+      ytextRef.current?.unobserve(observer);
       ydocRef.current?.destroy();
     };
   }, []);
 
+  // Handle incoming messages
   const handleMessage = useCallback((message) => {
     switch (message.type) {
-      case 'users':
-        setUsers(message.users || []);
-        break;
-        
-      case 'user_joined':
-        setUsers(prev => {
-          if (prev.find(u => u.id === message.user.id)) {
-            return prev;
-          }
-          return [...prev, message.user];
-        });
-        if (message.user.id !== clientIdRef.current) {
-          toast.info(`${message.user.name} joined`, {
-            icon: <UserPlus className="w-4 h-4" />
-          });
-        }
-        break;
-        
-      case 'user_left':
-        setUsers(prev => prev.filter(u => u.id !== message.user_id));
-        break;
-        
-      case 'cursor':
-      case 'selection':
-        setUsers(prev => prev.map(u => {
-          if (u.id === message.user_id) {
-            return {
-              ...u,
-              cursor_position: message.type === 'cursor' ? message.position : u.cursor_position,
-              selection: message.type === 'selection' ? message.selection : u.selection
-            };
-          }
-          return u;
-        }));
-        break;
-        
       case 'sync':
         if (message.data) {
           try {
-            const update = new Uint8Array(Buffer.from(message.data, 'hex'));
+            const update = fromHex(message.data);
             Y.applyUpdate(ydocRef.current, update);
+            const newContent = ytextRef.current.toString();
+            setContent(newContent);
+            console.log('Synced content:', newContent.slice(0, 50) + '...');
           } catch (e) {
             console.error('Sync error:', e);
           }
@@ -142,20 +179,74 @@ const EditorPage = () => {
         break;
         
       case 'update':
-        if (message.data && message.from !== clientIdRef.current) {
+        if (message.data && message.from !== sessionIdRef.current) {
           try {
-            const update = new Uint8Array(Buffer.from(message.data, 'hex'));
+            const update = fromHex(message.data);
             Y.applyUpdate(ydocRef.current, update);
+            const newContent = ytextRef.current.toString();
+            setContent(newContent);
+            console.log('Remote update received:', newContent.slice(0, 50) + '...');
           } catch (e) {
             console.error('Update error:', e);
           }
         }
         break;
-        
-      case 'pong':
-        // Calculate latency
-        const latency = Date.now() - message.timestamp;
-        console.log('Latency:', latency, 'ms');
+
+      case 'cursor':
+        // Update remote user cursor position
+        if (message.userId && message.userId !== sessionIdRef.current) {
+          console.log('Received cursor from', message.name, 'at position', message.position);
+          setRemoteUsers(prev => ({
+            ...prev,
+            [message.userId]: {
+              name: message.name || 'Anonymous',
+              color: message.color || '#3B82F6',
+              cursorPosition: message.position
+            }
+          }));
+        }
+        break;
+
+      case 'user_joined':
+        // Add new user to the list
+        if (message.userId && message.userId !== sessionIdRef.current) {
+          setRemoteUsers(prev => ({
+            ...prev,
+            [message.userId]: {
+              name: message.name || 'Anonymous',
+              color: message.color || '#3B82F6',
+              cursorPosition: null
+            }
+          }));
+        }
+        break;
+
+      case 'user_left':
+        // Remove user from the list
+        if (message.userId) {
+          setRemoteUsers(prev => {
+            const updated = { ...prev };
+            delete updated[message.userId];
+            return updated;
+          });
+        }
+        break;
+
+      case 'users_list':
+        // Initial list of users in the room
+        if (message.users) {
+          const users = {};
+          message.users.forEach(user => {
+            if (user.id !== sessionIdRef.current) {
+              users[user.id] = {
+                name: user.name || 'Anonymous',
+                color: user.color || '#3B82F6',
+                cursorPosition: user.cursorPosition || null
+              };
+            }
+          });
+          setRemoteUsers(users);
+        }
         break;
         
       default:
@@ -165,59 +256,61 @@ const EditorPage = () => {
 
   // WebSocket connection
   const connect = useCallback(() => {
-    if (!currentUser) return;
+    if (!currentUser || !currentUser.id) return;
     
-    const ws = new WebSocket(`${WS_URL}/api/ws/${roomId}?client_id=${clientIdRef.current}`);
-    wsRef.current = ws;
+    try {
+      const ws = new WebSocket(`${WS_URL}/api/ws/${roomId}?client_id=${sessionIdRef.current}`);
+      wsRef.current = ws;
 
-    ws.onopen = () => {
-      setIsConnected(true);
-      setIsSyncing(true);
-      
-      // Send join message
-      ws.send(JSON.stringify({
-        type: 'join',
-        name: currentUser.name,
-        color: currentUser.color
-      }));
-      
-      toast.success('Connected to room', {
-        description: `Room: ${roomId}`
-      });
-      
-      setTimeout(() => setIsSyncing(false), 1000);
-    };
+      ws.onopen = () => {
+        setIsConnected(true);
+        console.log('WebSocket connected to room:', roomId);
+        
+        // Send join message
+        ws.send(JSON.stringify({
+          type: 'join',
+          name: currentUser.name,
+          color: currentUser.color
+        }));
+        
+        // Request sync to get the latest document state
+        ws.send(JSON.stringify({
+          type: 'sync_request'
+        }));
+      };
 
-    ws.onmessage = (event) => {
-      try {
-        if (typeof event.data === 'string') {
-          const message = JSON.parse(event.data);
-          handleMessage(message);
-        } else {
-          // Binary message - Yjs update
-          const update = new Uint8Array(event.data);
-          Y.applyUpdate(ydocRef.current, update);
+      ws.onmessage = (event) => {
+        try {
+          if (typeof event.data === 'string') {
+            const message = JSON.parse(event.data);
+            handleMessage(message);
+          } else {
+            // Binary message - Yjs update
+            const update = new Uint8Array(event.data);
+            Y.applyUpdate(ydocRef.current, update);
+            setContent(ytextRef.current.toString());
+          }
+        } catch (e) {
+          console.error('Failed to parse message:', e);
         }
-      } catch (e) {
-        console.error('Failed to parse message:', e);
-      }
-    };
+      };
 
-    ws.onclose = () => {
-      setIsConnected(false);
-      toast.error('Disconnected', {
-        description: 'Attempting to reconnect...'
-      });
-      
-      // Reconnect after delay
-      reconnectTimeoutRef.current = setTimeout(() => {
-        connect();
-      }, 3000);
-    };
+      ws.onclose = () => {
+        setIsConnected(false);
+        console.log('WebSocket disconnected, reconnecting...');
+        
+        // Reconnect after delay
+        reconnectTimeoutRef.current = setTimeout(() => {
+          connect();
+        }, 3000);
+      };
 
-    ws.onerror = (error) => {
-      console.error('WebSocket error:', error);
-    };
+      ws.onerror = (error) => {
+        console.error('WebSocket error:', error);
+      };
+    } catch (e) {
+      console.error('Connection error:', e);
+    }
   }, [roomId, currentUser, handleMessage]);
 
   // Connect on mount
@@ -234,345 +327,271 @@ const EditorPage = () => {
     };
   }, [connect, currentUser]);
 
-  // Navigate to new URL if roomId changes
+  // Navigate to URL with roomId
   useEffect(() => {
     if (!urlRoomId && roomId) {
       navigate(`/editor/${roomId}`, { replace: true });
     }
   }, [roomId, urlRoomId, navigate]);
 
-  // Fetch metrics periodically
-  useEffect(() => {
-    const fetchMetrics = async () => {
-      try {
-        const res = await fetch(`${BACKEND_URL}/api/metrics`);
-        const data = await res.json();
-        setMetrics(data);
-      } catch (e) {
-        console.error('Failed to fetch metrics:', e);
-      }
-    };
-
-    const fetchEvents = async () => {
-      try {
-        const res = await fetch(`${BACKEND_URL}/api/metrics/events?limit=50`);
-        const data = await res.json();
-        setEvents(data);
-      } catch (e) {
-        console.error('Failed to fetch events:', e);
-      }
-    };
-
-    fetchMetrics();
-    fetchEvents();
+  // Handle text input
+  const handleInput = useCallback((e) => {
+    if (!ytextRef.current || !ydocRef.current) return;
     
-    const interval = setInterval(() => {
-      fetchMetrics();
-      fetchEvents();
-    }, 2000);
+    const newContent = e.target.value;
+    const oldContent = ytextRef.current.toString();
     
-    return () => clearInterval(interval);
-  }, []);
-
-  // Send document updates
-  const sendUpdate = useCallback((update) => {
+    if (newContent === oldContent) return;
+    
+    isLocalUpdateRef.current = true;
+    
+    // Apply changes to Yjs using a diff approach
+    ydocRef.current.transact(() => {
+      // Find the first difference
+      let start = 0;
+      while (start < oldContent.length && start < newContent.length && oldContent[start] === newContent[start]) {
+        start++;
+      }
+      
+      // Find the last difference
+      let oldEnd = oldContent.length;
+      let newEnd = newContent.length;
+      while (oldEnd > start && newEnd > start && oldContent[oldEnd - 1] === newContent[newEnd - 1]) {
+        oldEnd--;
+        newEnd--;
+      }
+      
+      // Delete the changed portion
+      if (oldEnd > start) {
+        ytextRef.current.delete(start, oldEnd - start);
+      }
+      
+      // Insert the new content
+      if (newEnd > start) {
+        ytextRef.current.insert(start, newContent.slice(start, newEnd));
+      }
+    }, 'local');
+    
+    setContent(newContent);
+    
+    // Send update to server
     if (wsRef.current?.readyState === WebSocket.OPEN) {
+      const update = Y.encodeStateAsUpdate(ydocRef.current);
+      const hexData = toHex(update);
+      
+      // Only send if the state actually changed
+      if (hexData !== lastSentStateRef.current) {
+        lastSentStateRef.current = hexData;
+        wsRef.current.send(JSON.stringify({
+          type: 'update',
+          data: hexData
+        }));
+        console.log('Sent update, content:', newContent.slice(0, 50) + '...');
+      }
+      
+      // Also send cursor position on every keystroke
+      const cursorPos = e.target.selectionStart;
       wsRef.current.send(JSON.stringify({
-        type: 'update',
-        data: Buffer.from(update).toString('hex')
+        type: 'cursor',
+        userId: sessionIdRef.current,
+        name: currentUser.name,
+        color: currentUser.color,
+        position: cursorPos
       }));
     }
-  }, []);
+  }, [currentUser]);
 
-  // Send cursor position
-  const sendCursor = useCallback((position) => {
+  // Send cursor position to other users
+  const sendCursorPosition = useCallback((position) => {
     if (wsRef.current?.readyState === WebSocket.OPEN) {
       wsRef.current.send(JSON.stringify({
         type: 'cursor',
-        position
+        userId: sessionIdRef.current,
+        name: currentUser.name,
+        color: currentUser.color,
+        position: position
       }));
     }
-  }, []);
+  }, [currentUser]);
 
-  // Send selection
-  const sendSelection = useCallback((selection) => {
-    if (wsRef.current?.readyState === WebSocket.OPEN) {
-      wsRef.current.send(JSON.stringify({
-        type: 'selection',
-        selection
-      }));
-    }
-  }, []);
+  // Handle cursor/selection changes
+  const handleSelect = useCallback((e) => {
+    const textarea = e.target;
+    const position = textarea.selectionStart;
+    sendCursorPosition(position);
+  }, [sendCursorPosition]);
 
-  // Copy room link
-  const copyRoomLink = async () => {
-    const link = `${window.location.origin}/editor/${roomId}`;
-    try {
-      await navigator.clipboard.writeText(link);
-      setCopied(true);
-      toast.success('Link copied!');
-      setTimeout(() => setCopied(false), 2000);
-    } catch (error) {
-      // Fallback for when clipboard API is not available or permission denied
-      console.warn('Clipboard API failed, using fallback:', error);
-      
-      // Create a temporary textarea element
-      const textArea = document.createElement('textarea');
-      textArea.value = link;
-      textArea.style.position = 'fixed';
-      textArea.style.left = '-999999px';
-      textArea.style.top = '-999999px';
-      document.body.appendChild(textArea);
-      textArea.focus();
-      textArea.select();
-      
-      try {
-        document.execCommand('copy');
-        setCopied(true);
-        toast.success('Link copied!');
-        setTimeout(() => setCopied(false), 2000);
-      } catch (fallbackError) {
-        console.error('Fallback copy failed:', fallbackError);
-        toast.error('Failed to copy link');
-      }
-      
-      document.body.removeChild(textArea);
-    }
-  };
-
-  // Simulate users for load testing
-  const simulateUsers = async () => {
-    setIsSimulating(true);
-    try {
-      const res = await fetch(`${BACKEND_URL}/api/simulate/users/${roomId}?count=10`, {
-        method: 'POST'
-      });
-      const data = await res.json();
-      toast.success(`Added ${data.simulated_users} simulated users`);
-    } catch (e) {
-      toast.error('Failed to simulate users');
-    }
-    setIsSimulating(false);
-  };
-
-  const removeSimulatedUsers = async () => {
-    try {
-      const res = await fetch(`${BACKEND_URL}/api/simulate/users/${roomId}`, {
-        method: 'DELETE'
-      });
-      const data = await res.json();
-      toast.success(`Removed ${data.removed} simulated users`);
-    } catch (e) {
-      toast.error('Failed to remove simulated users');
-    }
-  };
-
-  const otherUsers = users.filter(u => u.id !== clientIdRef.current);
+  // Get number of active remote users
+  const activeRemoteUsers = Object.keys(remoteUsers).length;
 
   return (
-    <TooltipProvider>
-      <div className="min-h-screen bg-background flex flex-col" data-testid="editor-page">
-        {/* Header */}
-        <header className="h-14 border-b border-zinc-800 flex items-center px-4 gap-4 bg-zinc-950/80 backdrop-blur-sm sticky top-0 z-50">
-          <Button
-            variant="ghost"
-            size="sm"
+    <div className="min-h-screen bg-gray-200 flex flex-col">
+      {/* Header */}
+      <div className="bg-white border-b border-gray-200 px-4 py-3 flex items-center justify-between shadow-sm">
+        <div className="flex items-center gap-4">
+          <button 
             onClick={() => navigate('/')}
-            data-testid="back-btn"
+            className="text-gray-600 hover:text-gray-900 text-sm font-medium"
           >
-            <ChevronLeft className="w-4 h-4 mr-1" />
-            Back
-          </Button>
-          
-          <Separator orientation="vertical" className="h-6" />
-          
-          <div className="flex items-center gap-2">
-            <Terminal className="w-4 h-4 text-primary" />
-            <span className="font-heading font-bold">ConcurrencyPad</span>
-          </div>
-          
-          <div className="flex items-center gap-2 px-3 py-1.5 rounded-md bg-zinc-900 border border-zinc-800">
-            <span className="text-xs text-muted-foreground">Room:</span>
-            <code className="text-sm font-mono text-foreground">{roomId}</code>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-6 w-6"
-              onClick={copyRoomLink}
-              data-testid="copy-link-btn"
+            ← Back
+          </button>
+          <div className="h-4 w-px bg-gray-300" />
+          <span className="text-gray-600 text-sm">Room: <span className="font-mono font-medium text-gray-900">{roomId}</span></span>
+        </div>
+        
+        <div className="flex items-center gap-3">
+          {/* Current User */}
+          <div className="flex items-center gap-2 px-3 py-1.5 rounded-md bg-gray-100">
+            <div 
+              className="w-6 h-6 rounded-full flex items-center justify-center text-white text-xs font-bold"
+              style={{ backgroundColor: currentUser.color }}
             >
-              {copied ? (
-                <Check className="w-3 h-3 text-green-500" />
-              ) : (
-                <Copy className="w-3 h-3" />
-              )}
-            </Button>
+              {currentUser.name.charAt(0).toUpperCase()}
+            </div>
+            <span className="text-sm text-gray-700 font-medium">{currentUser.name}</span>
           </div>
+
+          {/* Remote Users */}
+          {activeRemoteUsers > 0 && (
+            <div className="flex items-center">
+              <div className="flex -space-x-2">
+                {Object.entries(remoteUsers).slice(0, 5).map(([userId, user]) => (
+                  <div
+                    key={userId}
+                    className="w-7 h-7 rounded-full flex items-center justify-center text-white text-xs font-bold border-2 border-white shadow-sm cursor-default"
+                    style={{ backgroundColor: user.color }}
+                    title={user.name}
+                  >
+                    {user.name.charAt(0).toUpperCase()}
+                  </div>
+                ))}
+                {activeRemoteUsers > 5 && (
+                  <div className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold border-2 border-white bg-gray-500 text-white">
+                    +{activeRemoteUsers - 5}
+                  </div>
+                )}
+              </div>
+              <span className="ml-2 text-sm text-gray-500">
+                {activeRemoteUsers} other{activeRemoteUsers > 1 ? 's' : ''} editing
+              </span>
+            </div>
+          )}
+
+          {/* Divider */}
+          <div className="h-4 w-px bg-gray-300" />
           
-          <div className="flex-1" />
+          {/* Theme Toggle */}
+          <button
+            onClick={() => setDarkMode(!darkMode)}
+            className="px-3 py-1.5 text-sm font-medium rounded-md border border-gray-300 bg-white hover:bg-gray-50 transition-colors text-gray-700"
+          >
+            {darkMode ? '☀️ Light Mode' : '🌙 Dark Mode'}
+          </button>
           
           {/* Connection Status */}
-          <div className="flex items-center gap-2">
-            <Badge 
-              variant={isConnected ? "default" : "destructive"}
-              className={`gap-1.5 ${isConnected ? 'bg-green-500/20 text-green-400 border-green-500/30' : ''}`}
-            >
-              {isConnected ? (
-                <>
-                  <Wifi className="w-3 h-3" />
-                  {isSyncing ? 'Syncing...' : 'Connected'}
-                </>
-              ) : (
-                <>
-                  <WifiOff className="w-3 h-3" />
-                  Disconnected
-                </>
-              )}
-            </Badge>
-            
-            <div className="avatar-stack">
-              {otherUsers.slice(0, 3).map((user) => (
-                <Tooltip key={user.id}>
-                  <TooltipTrigger asChild>
-                    <div 
-                      className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-medium"
-                      style={{ backgroundColor: user.color + '30', color: user.color, border: `2px solid ${user.color}` }}
-                    >
-                      {user.name.charAt(0).toUpperCase()}
-                    </div>
-                  </TooltipTrigger>
-                  <TooltipContent>{user.name}</TooltipContent>
-                </Tooltip>
-              ))}
-              {otherUsers.length > 3 && (
-                <div className="w-7 h-7 rounded-full bg-zinc-800 flex items-center justify-center text-xs">
-                  +{otherUsers.length - 3}
-                </div>
-              )}
-            </div>
+          <div className={`text-sm px-3 py-1.5 rounded font-medium ${isConnected ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
+            {isConnected ? '● Connected' : '○ Disconnected'}
           </div>
-          
-          <Separator orientation="vertical" className="h-6" />
-          
-          <div className="flex items-center gap-1">
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  variant={showMetrics ? "secondary" : "ghost"}
-                  size="icon"
-                  className="h-8 w-8"
-                  onClick={() => setShowMetrics(!showMetrics)}
-                  data-testid="toggle-metrics-btn"
-                >
-                  <BarChart3 className="w-4 h-4" />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>Metrics Dashboard</TooltipContent>
-            </Tooltip>
-            
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  variant={showEvents ? "secondary" : "ghost"}
-                  size="icon"
-                  className="h-8 w-8"
-                  onClick={() => setShowEvents(!showEvents)}
-                  data-testid="toggle-events-btn"
-                >
-                  <MessageSquare className="w-4 h-4" />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>Event Log</TooltipContent>
-            </Tooltip>
-          </div>
-        </header>
-
-        {/* Main Content */}
-        <div className="flex-1 flex overflow-hidden">
-          {/* Presence Sidebar */}
-          <PresenceSidebar 
-            users={users} 
-            currentUserId={clientIdRef.current}
-            onSimulate={simulateUsers}
-            onRemoveSimulated={removeSimulatedUsers}
-            isSimulating={isSimulating}
-          />
-
-          {/* Editor Area */}
-          <main className="flex-1 flex flex-col min-w-0 overflow-hidden">
-            {/* Metrics Bar */}
-            {showMetrics && metrics && (
-              <motion.div 
-                initial={{ height: 0, opacity: 0 }}
-                animate={{ height: 'auto', opacity: 1 }}
-                exit={{ height: 0, opacity: 0 }}
-                className="border-b border-zinc-800 bg-zinc-950/50"
-              >
-                <MetricsDashboard metrics={metrics} />
-              </motion.div>
-            )}
-            
-            {/* Editor */}
-            <div className="flex-1 p-6 overflow-auto">
-              <Editor 
-                ydoc={ydocRef.current}
-                currentUser={currentUser}
-                users={otherUsers}
-                onUpdate={sendUpdate}
-                onCursor={sendCursor}
-                onSelection={sendSelection}
-                isConnected={isConnected}
-              />
-            </div>
-            
-            {/* Status Bar */}
-            <div className="h-8 border-t border-zinc-800 bg-zinc-950/80 flex items-center px-4 text-xs text-muted-foreground gap-4">
-              <div className="flex items-center gap-1.5">
-                <Users className="w-3 h-3" />
-                <span>{users.length} user{users.length !== 1 ? 's' : ''}</span>
-              </div>
-              <Separator orientation="vertical" className="h-4" />
-              <div className="flex items-center gap-1.5">
-                <Zap className="w-3 h-3" />
-                <span>P50: {metrics?.p50_latency_ms || 0}ms</span>
-              </div>
-              <div className="flex items-center gap-1.5">
-                <Clock className="w-3 h-3" />
-                <span>P95: {metrics?.p95_latency_ms || 0}ms</span>
-              </div>
-              <Separator orientation="vertical" className="h-4" />
-              <div className="flex items-center gap-1.5">
-                <Activity className="w-3 h-3" />
-                <span>{metrics?.messages_per_sec || 0} msg/s</span>
-              </div>
-              <div className="flex items-center gap-1.5">
-                <HardDrive className="w-3 h-3" />
-                <span>{((metrics?.total_doc_size_bytes || 0) / 1024).toFixed(1)} KB</span>
-              </div>
-              <div className="flex-1" />
-              <div className="flex items-center gap-1.5">
-                <span className="text-muted-foreground">CRDT:</span>
-                <span className="text-primary">Yjs</span>
-              </div>
-            </div>
-          </main>
-
-          {/* Event Log Sidebar */}
-          <AnimatePresence>
-            {showEvents && (
-              <motion.div
-                initial={{ width: 0, opacity: 0 }}
-                animate={{ width: 320, opacity: 1 }}
-                exit={{ width: 0, opacity: 0 }}
-                className="border-l border-zinc-800 bg-zinc-950/50 overflow-hidden"
-              >
-                <EventLog events={events} />
-              </motion.div>
-            )}
-          </AnimatePresence>
         </div>
       </div>
-    </TooltipProvider>
+      
+      {/* Main Content */}
+      <div className="flex-1 flex overflow-hidden">
+        {/* Editor Container - Google Docs Style */}
+        <div className="flex-1 overflow-auto bg-gray-200 relative">
+          <div className="flex justify-center py-8">
+            <div 
+              className={`shadow-lg transition-all duration-300 relative ${
+                darkMode 
+                  ? 'bg-gray-900' 
+                  : 'bg-white'
+              }`}
+              style={{ 
+                width: '816px',
+                minHeight: '1056px',
+                maxWidth: '100%'
+              }}
+            >
+              {/* Cursor overlay - positioned absolutely over textarea */}
+              <div 
+                ref={cursorOverlayRef}
+                className="absolute inset-0 pointer-events-none p-16 overflow-hidden"
+                style={{ 
+                  fontFamily: 'Arial, sans-serif',
+                  fontSize: '11pt',
+                  lineHeight: '1.5'
+                }}
+              >
+                {Object.entries(remoteUsers).map(([oderId, user]) => {
+                  if (user.cursorPosition === null || user.cursorPosition === undefined) return null;
+                  
+                  // Calculate position based on text content
+                  const textBeforeCursor = content.substring(0, user.cursorPosition);
+                  const lines = textBeforeCursor.split('\n');
+                  const lineNumber = lines.length - 1;
+                  const columnNumber = lines[lines.length - 1].length;
+                  
+                  // Approximate character width and line height
+                  const charWidth = 8.8; // approximate for 11pt Arial
+                  const lineHeight = 22; // 1.5 line height for 11pt
+                  
+                  const left = columnNumber * charWidth;
+                  const top = lineNumber * lineHeight;
+                  
+                  return (
+                    <div
+                      key={oderId}
+                      className="absolute transition-all duration-100"
+                      style={{
+                        left: `${left}px`,
+                        top: `${top}px`,
+                        zIndex: 10
+                      }}
+                    >
+                      {/* Cursor line */}
+                      <div 
+                        className="w-0.5 h-5 animate-pulse"
+                        style={{ backgroundColor: user.color }}
+                      />
+                      {/* Name label */}
+                      <div 
+                        className="absolute left-0 -top-5 px-1.5 py-0.5 rounded text-xs font-medium text-white whitespace-nowrap shadow-md"
+                        style={{ backgroundColor: user.color }}
+                      >
+                        {user.name}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+              
+              <textarea
+                ref={editorRef}
+                value={content}
+                onChange={handleInput}
+                onSelect={handleSelect}
+                onClick={handleSelect}
+                onKeyUp={handleSelect}
+                placeholder="Start typing your document..."
+                className={`w-full h-full p-16 text-base leading-relaxed resize-none focus:outline-none relative z-0 ${
+                  darkMode 
+                    ? 'bg-gray-900 text-white placeholder-gray-500' 
+                    : 'bg-white text-black placeholder-gray-400'
+                }`}
+                style={{ 
+                  minHeight: '1056px',
+                  fontFamily: 'Arial, sans-serif',
+                  fontSize: '11pt',
+                  lineHeight: '1.5',
+                  caretColor: darkMode ? 'white' : 'black'
+                }}
+                spellCheck={false}
+              />
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
   );
 };
 

@@ -17,12 +17,16 @@ import statistics
 
 
 ROOT_DIR = Path(__file__).parent
-load_dotenv(ROOT_DIR / '.env')
+# Load .env file if it exists (for local development)
+env_file = ROOT_DIR / '.env'
+if env_file.exists():
+    load_dotenv(env_file)
 
-# MongoDB connection
-mongo_url = os.environ['MONGO_URL']
+# MongoDB connection with defaults for Docker
+mongo_url = os.environ.get('MONGO_URL', 'mongodb://localhost:27017')
+db_name = os.environ.get('DB_NAME', 'coedit')
 client = AsyncIOMotorClient(mongo_url)
-db = client[os.environ['DB_NAME']]
+db = client[db_name]
 
 # Create the main app without a prefix
 app = FastAPI()
@@ -152,7 +156,7 @@ class JoinRoomRequest(BaseModel):
 # ============== REST API Routes ==============
 @api_router.get("/")
 async def root():
-    return {"message": "ConcurrencyPad - Real-time Collaborative Editor API"}
+    return {"message": "CoEdit - Real-time Collaborative Editor API"}
 
 
 @api_router.get("/health")
@@ -174,12 +178,12 @@ async def get_events(limit: int = 50):
 async def list_rooms():
     rooms = []
     for room_id, connections in room_connections.items():
-        room_doc = room_documents.get(room_id, b'')
+        room_doc = room_documents.get(room_id, '')
         rooms.append({
             "id": room_id,
             "name": room_id,
             "user_count": len(connections),
-            "doc_size": len(room_doc),
+            "doc_size": len(room_doc) // 2 if room_doc else 0,  # hex is 2 chars per byte
             "users": list(room_users.get(room_id, {}).values())
         })
     return rooms
@@ -188,13 +192,13 @@ async def list_rooms():
 @api_router.get("/rooms/{room_id}")
 async def get_room(room_id: str):
     connections = room_connections.get(room_id, set())
-    room_doc = room_documents.get(room_id, b'')
+    room_doc = room_documents.get(room_id, '')
     users = room_users.get(room_id, {})
     return {
         "id": room_id,
         "name": room_id,
         "user_count": len(connections),
-        "doc_size": len(room_doc),
+        "doc_size": len(room_doc) // 2 if room_doc else 0,  # hex is 2 chars per byte
         "users": list(users.values())
     }
 
@@ -208,11 +212,11 @@ async def get_room_users(room_id: str):
 @api_router.post("/rooms/{room_id}/persist")
 async def persist_room(room_id: str):
     """Persist room document to MongoDB"""
-    room_doc = room_documents.get(room_id, b'')
+    room_doc = room_documents.get(room_id, '')
     if room_doc:
         doc = {
             "room_id": room_id,
-            "data": room_doc.hex(),  # Store as hex string
+            "data": room_doc,  # Already stored as hex string
             "updated_at": datetime.now(timezone.utc).isoformat(),
             "size": len(room_doc)
         }
@@ -230,7 +234,7 @@ async def load_room(room_id: str):
     """Load room document from MongoDB"""
     doc = await db.room_documents.find_one({"room_id": room_id}, {"_id": 0})
     if doc:
-        room_documents[room_id] = bytes.fromhex(doc["data"])
+        room_documents[room_id] = doc["data"]  # Store as hex string
         return {"success": True, "size": doc.get("size", 0)}
     return {"success": False, "error": "No persisted document found"}
 
@@ -294,10 +298,10 @@ async def websocket_endpoint(websocket: WebSocket, room_id: str, client_id: str 
     await manager.connect(websocket, room_id, client_id)
     
     # Send initial sync - send existing document state
-    if room_id in room_documents:
+    if room_id in room_documents and room_documents[room_id]:
         await websocket.send_json({
             "type": "sync",
-            "data": room_documents[room_id].hex()
+            "data": room_documents[room_id]  # Already stored as hex string
         })
     
     # Send current users in room
@@ -345,7 +349,7 @@ async def websocket_endpoint(websocket: WebSocket, room_id: str, client_id: str 
         try:
             await manager.broadcast(room_id, {
                 "type": "user_left",
-                "user_id": client_id
+                "userId": client_id
             })
         except:
             pass  # Ignore errors during cleanup
@@ -367,19 +371,35 @@ async def handle_json_message(websocket: WebSocket, room_id: str, client_id: str
         room_users[room_id][client_id] = user_info
         metrics.add_event("join", room_id, client_id, f"User {user_info['name']} joined")
         
-        # Broadcast to all users
+        # Broadcast to all users (including the new one to get the list)
         await manager.broadcast(room_id, {
             "type": "user_joined",
-            "user": user_info
+            "userId": client_id,
+            "name": user_info["name"],
+            "color": user_info["color"]
+        }, exclude_client=client_id)
+        
+        # Send the current users list to the joining user
+        users_list = [
+            {"id": uid, "name": u["name"], "color": u["color"], "cursorPosition": u.get("cursor_position")}
+            for uid, u in room_users.get(room_id, {}).items()
+            if uid != client_id
+        ]
+        await websocket.send_json({
+            "type": "users_list",
+            "users": users_list
         })
     
     elif msg_type == "cursor":
         # Cursor position update
         if client_id in room_users.get(room_id, {}):
             room_users[room_id][client_id]["cursor_position"] = message.get("position")
+            user_info = room_users[room_id][client_id]
             await manager.broadcast(room_id, {
                 "type": "cursor",
-                "user_id": client_id,
+                "userId": client_id,
+                "name": user_info.get("name", "Anonymous"),
+                "color": user_info.get("color", "#3B82F6"),
                 "position": message.get("position")
             }, exclude_client=client_id)
     
@@ -403,26 +423,24 @@ async def handle_json_message(websocket: WebSocket, room_id: str, client_id: str
     
     elif msg_type == "sync_request":
         # Client requesting full sync
-        if room_id in room_documents:
+        if room_id in room_documents and room_documents[room_id]:
             await websocket.send_json({
                 "type": "sync",
-                "data": room_documents[room_id].hex()
+                "data": room_documents[room_id]  # Already stored as hex string
             })
     
     elif msg_type == "update":
-        # Document update (hex encoded)
-        update_data = bytes.fromhex(message.get("data", ""))
+        # Document update (hex encoded) - this is the FULL Yjs state
+        update_data = message.get("data", "")
         if update_data:
-            # Merge with existing document
-            existing = room_documents.get(room_id, b'')
-            # For simplicity, we concatenate updates (proper Yjs would merge)
-            room_documents[room_id] = existing + update_data
-            metrics.record_doc_size(room_id, len(room_documents[room_id]))
+            # Store the full state (not concatenating - the client sends full state)
+            room_documents[room_id] = update_data  # Store as hex string
+            metrics.record_doc_size(room_id, len(update_data))
             
             # Broadcast to others
             await manager.broadcast(room_id, {
                 "type": "update",
-                "data": message.get("data"),
+                "data": update_data,
                 "from": client_id
             }, exclude_client=client_id)
     
@@ -432,13 +450,16 @@ async def handle_json_message(websocket: WebSocket, room_id: str, client_id: str
 
 async def handle_binary_message(websocket: WebSocket, room_id: str, client_id: str, data: bytes):
     """Handle binary Yjs update messages"""
-    # Store the update
-    existing = room_documents.get(room_id, b'')
-    room_documents[room_id] = existing + data
-    metrics.record_doc_size(room_id, len(room_documents[room_id]))
+    # Store the update as hex string (full state)
+    room_documents[room_id] = data.hex()
+    metrics.record_doc_size(room_id, len(data))
     
-    # Broadcast to all other clients
-    await manager.broadcast_bytes(room_id, data, exclude_client=client_id)
+    # Broadcast to all other clients as JSON with hex data
+    await manager.broadcast(room_id, {
+        "type": "update",
+        "data": data.hex(),
+        "from": client_id
+    }, exclude_client=client_id)
 
 
 # ============== Load Testing Simulation ==============
@@ -483,7 +504,7 @@ async def remove_simulated_users(room_id: str):
             del room_users[room_id][user_id]
             await manager.broadcast(room_id, {
                 "type": "user_left",
-                "user_id": user_id
+                "userId": user_id
             })
             removed += 1
     
