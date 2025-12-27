@@ -66,6 +66,9 @@ const EditorPage = () => {
   const [content, setContent] = useState('');
   const [darkMode, setDarkMode] = useState(false);
   const [remoteUsers, setRemoteUsers] = useState({}); // { oderId: { name, color, cursorPosition } }
+  const [showMetrics, setShowMetrics] = useState(false);
+  const [metrics, setMetrics] = useState(null);
+  const [metricsLoading, setMetricsLoading] = useState(false);
   
   // Get user from localStorage, redirect if not found
   const storedUser = getStoredUser();
@@ -424,6 +427,28 @@ const EditorPage = () => {
   // Get number of active remote users
   const activeRemoteUsers = Object.keys(remoteUsers).length;
 
+  // Fetch metrics from backend
+  const fetchMetrics = useCallback(async () => {
+    setMetricsLoading(true);
+    try {
+      const response = await fetch(`${BACKEND_URL}/api/metrics`);
+      if (response.ok) {
+        const data = await response.json();
+        setMetrics(data);
+      }
+    } catch (error) {
+      console.error('Failed to fetch metrics:', error);
+    } finally {
+      setMetricsLoading(false);
+    }
+  }, []);
+
+  // Handle show metrics button click
+  const handleShowMetrics = useCallback(() => {
+    setShowMetrics(true);
+    fetchMetrics();
+  }, [fetchMetrics]);
+
   return (
     <div className="min-h-screen bg-gray-200 flex flex-col">
       {/* Header */}
@@ -480,6 +505,14 @@ const EditorPage = () => {
           {/* Divider */}
           <div className="h-4 w-px bg-gray-300" />
           
+          {/* Metrics Button */}
+          <button
+            onClick={handleShowMetrics}
+            className="px-3 py-1.5 text-sm font-medium rounded-md border border-gray-300 bg-white hover:bg-gray-50 transition-colors text-gray-700"
+          >
+            Metrics
+          </button>
+
           {/* Theme Toggle */}
           <button
             onClick={() => setDarkMode(!darkMode)}
@@ -591,6 +624,103 @@ const EditorPage = () => {
           </div>
         </div>
       </div>
+      {/* Metrics Modal */}
+      {showMetrics && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className={`rounded-lg shadow-xl max-w-lg w-full mx-4 ${darkMode ? 'bg-gray-800' : 'bg-white'}`}>
+            {/* Modal Header */}
+            <div className={`flex items-center justify-between px-6 py-4 border-b ${darkMode ? 'border-gray-700' : 'border-gray-200'}`}>
+              <h2 className={`text-lg font-semibold ${darkMode ? 'text-white' : 'text-gray-900'}`}>
+                  Server Metrics
+              </h2>
+              <button
+                onClick={() => setShowMetrics(false)}
+                className={`p-1 rounded-full hover:bg-opacity-10 hover:bg-gray-500 transition-colors ${darkMode ? 'text-gray-400 hover:text-white' : 'text-gray-500 hover:text-gray-700'}`}
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div className="px-6 py-4">
+              {metricsLoading ? (
+                <div className={`text-center py-8 ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+                  Loading metrics...
+                </div>
+              ) : metrics ? (
+                <div className="grid grid-cols-2 gap-4">
+                  <div className={`p-3 rounded-lg ${darkMode ? 'bg-gray-700' : 'bg-gray-50'}`}>
+                    <div className={`text-xs uppercase tracking-wide ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>Active Connections</div>
+                    <div className={`text-2xl font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}>{metrics.active_connections}</div>
+                  </div>
+                  <div className={`p-3 rounded-lg ${darkMode ? 'bg-gray-700' : 'bg-gray-50'}`}>
+                    <div className={`text-xs uppercase tracking-wide ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>Active Rooms</div>
+                    <div className={`text-2xl font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}>{metrics.rooms_active}</div>
+                  </div>
+                  <div className={`p-3 rounded-lg ${darkMode ? 'bg-gray-700' : 'bg-gray-50'}`}>
+                    <div className={`text-xs uppercase tracking-wide ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>Messages/sec</div>
+                    <div className={`text-2xl font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}>{metrics.messages_per_sec?.toFixed(2) || '0.00'}</div>
+                  </div>
+                  <div className={`p-3 rounded-lg ${darkMode ? 'bg-gray-700' : 'bg-gray-50'}`}>
+                    <div className={`text-xs uppercase tracking-wide ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>Total Messages</div>
+                    <div className={`text-2xl font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}>{metrics.total_messages?.toLocaleString() || '0'}</div>
+                  </div>
+                  <div className={`p-3 rounded-lg ${darkMode ? 'bg-gray-700' : 'bg-gray-50'}`}>
+                    <div className={`text-xs uppercase tracking-wide ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>P50 Latency</div>
+                    <div className={`text-2xl font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}>{metrics.p50_latency_ms?.toFixed(1) || '0'} ms</div>
+                  </div>
+                  <div className={`p-3 rounded-lg ${darkMode ? 'bg-gray-700' : 'bg-gray-50'}`}>
+                    <div className={`text-xs uppercase tracking-wide ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>P95 Latency</div>
+                    <div className={`text-2xl font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}>{metrics.p95_latency_ms?.toFixed(1) || '0'} ms</div>
+                  </div>
+                  <div className={`p-3 rounded-lg ${darkMode ? 'bg-gray-700' : 'bg-gray-50'}`}>
+                    <div className={`text-xs uppercase tracking-wide ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>Error Count</div>
+                    <div className={`text-2xl font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}>{metrics.error_count || 0}</div>
+                  </div>
+                  <div className={`p-3 rounded-lg ${darkMode ? 'bg-gray-700' : 'bg-gray-50'}`}>
+                    <div className={`text-xs uppercase tracking-wide ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>Reconnects</div>
+                    <div className={`text-2xl font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}>{metrics.reconnect_count || 0}</div>
+                  </div>
+                  <div className={`p-3 rounded-lg col-span-2 ${darkMode ? 'bg-gray-700' : 'bg-gray-50'}`}>
+                    <div className={`text-xs uppercase tracking-wide ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>Uptime</div>
+                    <div className={`text-2xl font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}>
+                      {metrics.uptime_seconds ? `${Math.floor(metrics.uptime_seconds / 3600)}h ${Math.floor((metrics.uptime_seconds % 3600) / 60)}m ${Math.floor(metrics.uptime_seconds % 60)}s` : '0s'}
+                    </div>
+                  </div>
+                  <div className={`p-3 rounded-lg col-span-2 ${darkMode ? 'bg-gray-700' : 'bg-gray-50'}`}>
+                    <div className={`text-xs uppercase tracking-wide ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>Total Document Size</div>
+                    <div className={`text-2xl font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}>
+                      {metrics.total_doc_size_bytes ? `${(metrics.total_doc_size_bytes / 1024).toFixed(2)} KB` : '0 KB'}
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div className={`text-center py-8 ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+                  Failed to load metrics
+                </div>
+              )}
+            </div>
+
+            {/* Modal Footer */}
+            <div className={`px-6 py-4 border-t flex justify-between ${darkMode ? 'border-gray-700' : 'border-gray-200'}`}>
+              <button
+                onClick={fetchMetrics}
+                className={`px-4 py-2 text-sm font-medium rounded-md transition-colors ${darkMode ? 'bg-gray-700 text-gray-300 hover:bg-gray-600' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}
+              >
+                 Refresh
+              </button>
+              <button
+                onClick={() => setShowMetrics(false)}
+                className="px-4 py-2 text-sm font-medium rounded-md bg-blue-600 text-white hover:bg-blue-700 transition-colors"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
