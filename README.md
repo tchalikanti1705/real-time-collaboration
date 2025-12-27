@@ -2,12 +2,6 @@
 
 A production-grade collaborative text editor demonstrating distributed systems concepts: **CRDT synchronization**, **WebSocket presence**, **low-latency messaging**, and **real-time cursor tracking**.
 
-## 🎯 Resume One-Liner
-
-> **Built a real-time collaborative editor using Yjs CRDT achieving <50ms P50 sync latency, supporting 50+ concurrent users with WebSocket presence protocol and live cursor tracking.**
-
----
-
 ## 🚀 Quick Start
 
 ### Option 1: Docker Compose (Recommended - Easiest)
