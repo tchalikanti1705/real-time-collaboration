@@ -8,51 +8,97 @@ A production-grade collaborative text editor demonstrating distributed systems c
 
 ---
 
-## 🚀 Quick Start with Docker
+## 🚀 Quick Start
 
-### Using Docker Compose (Recommended)
+### Option 1: Docker Compose (Recommended - Easiest)
+
+**Prerequisites:** Docker Desktop installed and running
 
 ```bash
-# Clone and run
-git clone <repo-url>
+# 1. Clone the repository
+git clone https://github.com/tchalikanti1705/real-time-collaboration.git
 cd real-time-collaboration
 
-# Start the application
+# 2. Start the application (builds and runs everything)
 docker-compose up --build
 
-# Access the app at http://localhost:3000
+# 3. Open in browser
+# http://localhost:3000
 ```
 
-### Using Docker Only
-
-```bash
-# Build the image
-docker build -t coedit .
-
-# Run with external MongoDB
-docker run -p 3000:80 \
-  -e MONGO_URL=mongodb://your-mongo-host:27017 \
-  -e DB_NAME=coedit \
-  coedit
-```
+That's it! The app will be running with MongoDB included.
 
 ---
 
-## 💻 Local Development
+### Option 2: Local Development (Without Docker)
 
-### Backend
+**Prerequisites:** 
+- Node.js 18+ 
+- Python 3.9+
+- MongoDB (local or cloud like MongoDB Atlas)
+
+#### Step 1: Clone the repository
+```bash
+git clone https://github.com/tchalikanti1705/real-time-collaboration.git
+cd real-time-collaboration
+```
+
+#### Step 2: Setup Backend
 ```bash
 cd backend
+
+# Create .env file from example
+cp .env.example .env
+
+# Edit .env with your MongoDB connection (or use local MongoDB)
+# For local MongoDB: MONGO_URL=mongodb://localhost:27017
+
+# Install Python dependencies
 pip install -r requirements.txt
-# Create .env with MONGO_URL and DB_NAME
+
+# Start the backend server
 python -m uvicorn server:app --host 0.0.0.0 --port 8001 --reload
 ```
 
-### Frontend
+#### Step 3: Setup Frontend (in a new terminal)
 ```bash
 cd frontend
+
+# Install dependencies
 npm install --legacy-peer-deps
-npm start  # Runs on port 3000
+
+# Start the frontend dev server
+npm start
+```
+
+#### Step 4: Open the app
+- Frontend: http://localhost:3000
+- Backend API: http://localhost:8001
+
+---
+
+## 📝 Usage
+
+1. **Enter your name** on the landing page
+2. **Create a new room** or **join an existing room** with a Room ID
+3. **Start typing** - changes sync in real-time with other users
+4. **See live cursors** of other collaborators with their names
+5. **Share the Room ID** with others to collaborate
+
+---
+
+## 🔧 Environment Variables
+
+Create a `backend/.env` file (copy from `.env.example`):
+
+```env
+# MongoDB Configuration
+MONGO_URL=mongodb://localhost:27017    # Local MongoDB
+# MONGO_URL=mongodb://mongo:27017      # Docker MongoDB
+DB_NAME=coedit
+
+# CORS Configuration
+CORS_ORIGINS=*
 ```
 
 ---
