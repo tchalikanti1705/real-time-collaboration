@@ -1,0 +1,143 @@
+/* Main app styles - minimal, using Tailwind */
+.App {
+    min-height: 100vh;
+}
+
+/* Editor specific overrides */
+.ProseMirror {
+    outline: none;
+}
+
+.ProseMirror p {
+    margin: 0;
+}
+
+/* Yjs cursor styles */
+.yjs-cursor {
+    position: absolute;
+    width: 2px;
+    pointer-events: none;
+    z-index: 10;
+}
+
+.yjs-cursor-label {
+    position: absolute;
+    top: -18px;
+    left: -2px;
+    font-size: 11px;
+    font-family: 'IBM Plex Sans', sans-serif;
+    padding: 2px 6px;
+    border-radius: 3px;
+    white-space: nowrap;
+    font-weight: 500;
+}
+
+/* Selection overlay */
+.yjs-selection {
+    position: absolute;
+    pointer-events: none;
+    z-index: 5;
+}
+
+/* Sync status animations */
+@keyframes sync-pulse {
+    0%, 100% {
+        transform: scale(1);
+        opacity: 1;
+    }
+    50% {
+        transform: scale(1.1);
+        opacity: 0.8;
+    }
+}
+
+.sync-active {
+    animation: sync-pulse 1s ease-in-out infinite;
+}
+
+/* Presence animations */
+@keyframes presence-enter {
+    from {
+        opacity: 0;
+        transform: translateX(-10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateX(0);
+    }
+}
+
+@keyframes presence-exit {
+    from {
+        opacity: 1;
+        transform: translateX(0);
+    }
+    to {
+        opacity: 0;
+        transform: translateX(10px);
+    }
+}
+
+.presence-enter {
+    animation: presence-enter 0.3s ease-out;
+}
+
+.presence-exit {
+    animation: presence-exit 0.3s ease-out;
+}
+
+/* Metrics chart customization */
+.recharts-cartesian-grid line {
+    stroke: hsl(240 3.7% 15.9%);
+}
+
+.recharts-text {
+    fill: hsl(240 5% 64.9%);
+    font-family: 'IBM Plex Sans', sans-serif;
+    font-size: 11px;
+}
+
+/* Event log styles */
+.event-log-item {
+    border-left: 2px solid transparent;
+    transition: all 0.2s ease;
+}
+
+.event-log-item:hover {
+    background: hsl(240 3.7% 10%);
+}
+
+.event-log-item.connect {
+    border-left-color: #10B981;
+}
+
+.event-log-item.disconnect {
+    border-left-color: #F43F5E;
+}
+
+.event-log-item.join {
+    border-left-color: #3B82F6;
+}
+
+.event-log-item.update {
+    border-left-color: #F59E0B;
+}
+
+/* Tooltip styles */
+.custom-tooltip {
+    background: hsl(240 10% 8%) !important;
+    border: 1px solid hsl(240 3.7% 15.9%) !important;
+    border-radius: 6px !important;
+    padding: 8px 12px !important;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4) !important;
+}
+
+.custom-tooltip .label {
+    color: hsl(0 0% 98%);
+    font-weight: 500;
+}
+
+.custom-tooltip .value {
+    color: hsl(250 95% 65%);
+    font-family: 'JetBrains Mono', monospace;
+}
