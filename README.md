@@ -2,7 +2,7 @@
 
 A production-grade collaborative text editor demonstrating distributed systems concepts: **CRDT synchronization**, **WebSocket presence**, **low-latency messaging**, and **real-time cursor tracking**.
 
-## 🚀 Quick Start
+## Quick Start
 
 ### Option 1: Docker Compose (Recommended - Easiest)
 
@@ -71,7 +71,7 @@ npm start
 
 ---
 
-## 📝 Usage
+##  Usage
 
 1. **Enter your name** on the landing page
 2. **Create a new room** or **join an existing room** with a Room ID
@@ -81,23 +81,9 @@ npm start
 
 ---
 
-## 🔧 Environment Variables
 
-Create a `backend/.env` file (copy from `.env.example`):
 
-```env
-# MongoDB Configuration
-MONGO_URL=mongodb://localhost:27017    # Local MongoDB
-# MONGO_URL=mongodb://mongo:27017      # Docker MongoDB
-DB_NAME=coedit
-
-# CORS Configuration
-CORS_ORIGINS=*
-```
-
----
-
-## 🏗️ Architecture
+##  Architecture
 
 ```
 ┌─────────────┐     ┌─────────────┐     ┌─────────────┐
@@ -126,7 +112,7 @@ CORS_ORIGINS=*
 
 ---
 
-## 🔑 Why CRDT (Yjs)?
+##  Why CRDT (Yjs)?
 
 ### Problem with OT (Operational Transformation)
 - Requires **central server** to order operations
@@ -149,7 +135,7 @@ CORS_ORIGINS=*
 
 ---
 
-## 📊 Metrics & Observability
+##  Metrics & Observability
 
 ### Live Dashboard
 - **P50/P95 Latency**: Percentile response times
@@ -172,9 +158,9 @@ Real-time stream of:
 ### 1. Ordering Guarantees
 | Approach | Our Choice |
 |----------|------------|
-| Strong ordering | ❌ Not needed - CRDT handles conflicts |
-| Causal ordering | ✅ Yjs maintains causal dependencies |
-| Total ordering | ❌ Would require central coordinator |
+| Strong ordering |  Not needed - CRDT handles conflicts |
+| Causal ordering |  Yjs maintains causal dependencies |
+| Total ordering |  Would require central coordinator |
 
 ### 2. Persistence Strategy
 ```
@@ -198,7 +184,7 @@ Real-time stream of:
 
 ---
 
-## 🚀 Scaling Considerations
+##  Scaling Considerations
 
 ### Horizontal Scaling (Not implemented but designed for)
 ```
@@ -223,7 +209,7 @@ Load Balancer (Sticky Sessions)
 
 ---
 
-## 🧪 Load Testing
+##  Load Testing
 
 ### Built-in Simulation
 ```bash
@@ -260,7 +246,7 @@ curl /api/metrics/events?limit=50
 
 ---
 
-## 📁 Project Structure
+##  Project Structure
 
 ```
 /app
@@ -280,7 +266,7 @@ curl /api/metrics/events?limit=50
 
 ---
 
-## 🎓 Interview Talking Points
+##  Interview Talking Points
 
 1. **Why CRDT over OT?**
    - No central coordinator needed
@@ -309,7 +295,7 @@ curl /api/metrics/events?limit=50
 
 ---
 
-## 🚀 Quick Start
+##  Quick Start
 
 ```bash
 # Backend
@@ -324,12 +310,12 @@ Visit `http://localhost:3000` and open in multiple tabs to test collaboration!
 
 ---
 
-## 📈 Performance Benchmarks
+##  Performance Benchmarks
 
 | Metric | Target | Achieved |
 |--------|--------|----------|
-| P50 Latency | <50ms | ✅ <50ms |
-| P95 Latency | <200ms | ✅ <200ms |
-| Concurrent Users | 50+ | ✅ Tested |
-| Document Size | <1MB | ✅ Supported |
-| Reconnection | <3s | ✅ Auto-reconnect |
+| P50 Latency | <50ms |  <50ms |
+| P95 Latency | <200ms |  <200ms |
+| Concurrent Users | 50+ |  Tested |
+| Document Size | <1MB |  Supported |
+| Reconnection | <3s |  Auto-reconnect |
