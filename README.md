@@ -2,11 +2,11 @@
 
 A production-grade collaborative text editor built to demonstrate expertise in **distributed systems**, **real-time communication**, and **conflict resolution algorithms**.
 
-> 🎯 **Built to showcase:** How to build Google Docs-like real-time collaboration from scratch using modern technologies.
+> **Built to showcase:** How to build Google Docs-like real-time collaboration from scratch using modern technologies.
 
 ---
 
-## 📌 What is This?
+## What is This?
 
 CoEdit is a fully functional real-time collaborative text editor where **multiple users can edit the same document simultaneously** — just like Google Docs. Changes from all users appear instantly with live cursor positions and user presence indicators.
 
@@ -20,7 +20,7 @@ CoEdit is a fully functional real-time collaborative text editor where **multipl
 
 ---
 
-## 🤔 Why Build This?
+## Why Build This?
 
 Real-time collaboration is a **complex distributed systems problem** that companies like Google, Notion, and Figma have spent years perfecting. This project demonstrates understanding of:
 
@@ -44,7 +44,7 @@ Real-time collaboration is a **complex distributed systems problem** that compan
 
 ---
 
-## 🛠️ How It's Built
+## How It's Built
 
 ### Architecture Overview
 
@@ -109,7 +109,7 @@ CRDT Result: Both operations merge automatically → Consistent result on all cl
 
 ---
 
-## 🚀 Getting Started
+## Getting Started
 
 ### Using Docker (Recommended)
 
@@ -154,7 +154,7 @@ npm start
 
 ---
 
-## 📚 References & Learning Resources
+## References & Learning Resources
 
 | Resource | What I Learned |
 |----------|----------------|
@@ -163,6 +163,8 @@ npm start
 | [Martin Kleppmann's Talk](https://www.youtube.com/watch?v=x7drE24geUw) | CRDTs for distributed systems |
 | [Figma's Multiplayer Tech](https://www.figma.com/blog/how-figmas-multiplayer-technology-works/) | Real-world implementation insights |
 | [Notion's Data Model](https://www.notion.so/blog/data-model-behind-notion) | Production CRDT usage |
+| [Online Code Editor System Design](https://www.geeksforgeeks.org/system-design/designing-online-code-editor-system-design/) | System design patterns |
+| [Real-time Collaboration Tutorial](https://www.youtube.com/watch?v=-eMtcFqj8vI) | Implementation walkthrough |
 
 ---
 
