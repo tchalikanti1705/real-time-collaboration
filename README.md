@@ -1,5 +1,5 @@
 # CoEdit - Real-Time Collaborative Text Editor
-
+# My first commit
 A production-grade collaborative text editor demonstrating distributed systems concepts: **CRDT synchronization**, **WebSocket presence**, **low-latency messaging**, and **real-time cursor tracking**.
 
 ## Quick Start
