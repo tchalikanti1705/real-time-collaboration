@@ -1,4 +1,6 @@
 from fastapi import FastAPI, APIRouter, WebSocket, WebSocketDisconnect
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
 from dotenv import load_dotenv
 from starlette.middleware.cors import CORSMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient
@@ -533,3 +535,19 @@ logger = logging.getLogger(__name__)
 @app.on_event("shutdown")
 async def shutdown_db_client():
     client.close()
+
+# Serve static files from React build (for production)
+FRONTEND_BUILD_DIR = ROOT_DIR.parent / 'frontend' / 'build'
+if FRONTEND_BUILD_DIR.exists():
+    # Mount static assets
+    app.mount("/static", StaticFiles(directory=FRONTEND_BUILD_DIR / "static"), name="static")
+    
+    # Catch-all route for SPA - must be defined after all other routes
+    @app.get("/{full_path:path}")
+    async def serve_spa(full_path: str):
+        # Check if it's a file request
+        file_path = FRONTEND_BUILD_DIR / full_path
+        if file_path.exists() and file_path.is_file():
+            return FileResponse(file_path)
+        # Return index.html for SPA routing
+        return FileResponse(FRONTEND_BUILD_DIR / "index.html")
