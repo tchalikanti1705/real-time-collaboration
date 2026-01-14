@@ -32,9 +32,6 @@ COPY backend/ ./backend/
 # Copy built frontend from stage 1
 COPY --from=frontend-build /app/frontend/build /app/frontend/build
 
-# Expose port (Railway sets PORT env var, default to 8001)
-ENV PORT=8001
-EXPOSE ${PORT}
-
 # Start the FastAPI server (serves both API and static frontend)
-CMD ["sh", "-c", "python -m uvicorn backend.server:app --host 0.0.0.0 --port $PORT"]
+# Railway injects PORT env var at runtime
+CMD ["sh", "-c", "python -m uvicorn backend.server:app --host 0.0.0.0 --port ${PORT:-8080}"]
