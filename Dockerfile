@@ -26,7 +26,12 @@ WORKDIR /app
 RUN apt-get update && apt-get install -y \
     nginx \
     supervisor \
+    gettext-base \
+    curl \
     && rm -rf /var/lib/apt/lists/*
+
+# Create nginx templates directory
+RUN mkdir -p /etc/nginx/templates
 
 # Copy backend requirements and install
 COPY backend/requirements.txt ./backend/
@@ -38,9 +43,9 @@ COPY backend/ ./backend/
 # Copy built frontend from stage 1
 COPY --from=frontend-build /app/frontend/build /app/frontend/build
 
-# Create nginx configuration
+# Create nginx configuration template (PORT will be substituted at runtime)
 RUN echo 'server { \n\
-    listen 80; \n\
+    listen ${PORT}; \n\
     server_name localhost; \n\
     \n\
     # Serve React frontend \n\
@@ -61,7 +66,7 @@ RUN echo 'server { \n\
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for; \n\
         proxy_read_timeout 86400; \n\
     } \n\
-}' > /etc/nginx/sites-available/default
+}' > /etc/nginx/templates/default.conf.template
 
 # Create supervisor configuration
 RUN echo '[supervisord] \n\
@@ -69,7 +74,7 @@ nodaemon=true \n\
 user=root \n\
 \n\
 [program:nginx] \n\
-command=/usr/sbin/nginx -g "daemon off;" \n\
+command=/bin/bash -c "envsubst '"'"'$$PORT'"'"' < /etc/nginx/templates/default.conf.template > /etc/nginx/sites-available/default && /usr/sbin/nginx -g '"'"'daemon off;'"'"'" \n\
 autostart=true \n\
 autorestart=true \n\
 stdout_logfile=/dev/stdout \n\
@@ -88,12 +93,12 @@ stderr_logfile=/dev/stderr \n\
 stderr_logfile_maxbytes=0 \n\
 ' > /etc/supervisor/conf.d/supervisord.conf
 
-# Expose port 80 for the application
-EXPOSE 80
+# Expose port (Railway will set PORT env var)
+EXPOSE ${PORT:-80}
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
-    CMD curl -f http://localhost/api/health || exit 1
+    CMD curl -f http://localhost:${PORT:-80}/api/health || exit 1
 
 # Start supervisor (manages nginx + backend)
 CMD ["/usr/bin/supervisord", "-c", "/etc/supervisor/conf.d/supervisord.conf"]
