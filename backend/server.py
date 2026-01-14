@@ -538,16 +538,32 @@ async def shutdown_db_client():
 
 # Serve static files from React build (for production)
 FRONTEND_BUILD_DIR = ROOT_DIR.parent / 'frontend' / 'build'
+
+# Log the frontend build directory for debugging
+logger.info(f"Looking for frontend build at: {FRONTEND_BUILD_DIR}")
+logger.info(f"Frontend build exists: {FRONTEND_BUILD_DIR.exists()}")
+
 if FRONTEND_BUILD_DIR.exists():
-    # Mount static assets
-    app.mount("/static", StaticFiles(directory=FRONTEND_BUILD_DIR / "static"), name="static")
+    logger.info(f"Frontend build contents: {list(FRONTEND_BUILD_DIR.iterdir())}")
     
-    # Catch-all route for SPA - must be defined after all other routes
+    # Catch-all route for SPA - serves both static files and index.html
     @app.get("/{full_path:path}")
     async def serve_spa(full_path: str):
+        # If empty path, serve index.html
+        if not full_path:
+            return FileResponse(FRONTEND_BUILD_DIR / "index.html")
+        
         # Check if it's a file request
         file_path = FRONTEND_BUILD_DIR / full_path
         if file_path.exists() and file_path.is_file():
             return FileResponse(file_path)
+        
         # Return index.html for SPA routing
         return FileResponse(FRONTEND_BUILD_DIR / "index.html")
+    
+    # Mount static assets after the catch-all (FastAPI will match /static first)
+    app.mount("/static", StaticFiles(directory=FRONTEND_BUILD_DIR / "static"), name="static")
+else:
+    logger.warning(f"Frontend build not found at {FRONTEND_BUILD_DIR}. Listing parent directory:")
+    if ROOT_DIR.parent.exists():
+        logger.warning(f"Parent contents: {list(ROOT_DIR.parent.iterdir())}")

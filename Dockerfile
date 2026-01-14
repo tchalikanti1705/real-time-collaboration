@@ -37,4 +37,4 @@ ENV PORT=8001
 EXPOSE ${PORT}
 
 # Start the FastAPI server (serves both API and static frontend)
-CMD python -m uvicorn backend.server:app --host 0.0.0.0 --port ${PORT}
+CMD ["sh", "-c", "python -m uvicorn backend.server:app --host 0.0.0.0 --port $PORT"]
