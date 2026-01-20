@@ -452,78 +452,86 @@ const EditorPage = () => {
   return (
     <div className="min-h-screen bg-gray-200 flex flex-col">
       {/* Header */}
-      <div className="bg-white border-b border-gray-200 px-4 py-3 flex items-center justify-between shadow-sm">
-        <div className="flex items-center gap-4">
-          <button 
-            onClick={() => navigate('/')}
-            className="text-gray-600 hover:text-gray-900 text-sm font-medium"
-          >
-            ← Back
-          </button>
-          <div className="h-4 w-px bg-gray-300" />
-          <span className="text-gray-600 text-sm">Room: <span className="font-mono font-medium text-gray-900">{roomId}</span></span>
-        </div>
-        
-        <div className="flex items-center gap-3">
+      <div className="bg-white border-b border-gray-200 px-2 sm:px-4 py-2 sm:py-3 shadow-sm">
+        {/* Mobile: Stack layout, Desktop: Row layout */}
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-0">
+          {/* Top row on mobile: Back button and Room ID */}
+          <div className="flex items-center justify-between sm:justify-start gap-2 sm:gap-4">
+            <button 
+              onClick={() => navigate('/')}
+              className="text-gray-600 hover:text-gray-900 text-xs sm:text-sm font-medium"
+            >
+              ← Back
+            </button>
+            <div className="hidden sm:block h-4 w-px bg-gray-300" />
+            <span className="text-gray-600 text-xs sm:text-sm truncate">Room: <span className="font-mono font-medium text-gray-900">{roomId}</span></span>
+          </div>
+          
+          {/* Bottom row on mobile: All controls */}
+          <div className="flex items-center gap-2 sm:gap-3 flex-wrap justify-end sm:justify-start">
           {/* Current User */}
-          <div className="flex items-center gap-2 px-3 py-1.5 rounded-md bg-gray-100">
+          <div className="flex items-center gap-1.5 sm:gap-2 px-2 sm:px-3 py-1 sm:py-1.5 rounded-md bg-gray-100">
             <div 
-              className="w-6 h-6 rounded-full flex items-center justify-center text-white text-xs font-bold"
+              className="w-5 h-5 sm:w-6 sm:h-6 rounded-full flex items-center justify-center text-white text-[10px] sm:text-xs font-bold"
               style={{ backgroundColor: currentUser.color }}
             >
               {currentUser.name.charAt(0).toUpperCase()}
             </div>
-            <span className="text-sm text-gray-700 font-medium">{currentUser.name}</span>
+            <span className="text-xs sm:text-sm text-gray-700 font-medium hidden xs:inline">{currentUser.name}</span>
           </div>
 
           {/* Remote Users */}
           {activeRemoteUsers > 0 && (
             <div className="flex items-center">
-              <div className="flex -space-x-2">
-                {Object.entries(remoteUsers).slice(0, 5).map(([userId, user]) => (
+              <div className="flex -space-x-1.5 sm:-space-x-2">
+                {Object.entries(remoteUsers).slice(0, 3).map(([userId, user]) => (
                   <div
                     key={userId}
-                    className="w-7 h-7 rounded-full flex items-center justify-center text-white text-xs font-bold border-2 border-white shadow-sm cursor-default"
+                    className="w-5 h-5 sm:w-7 sm:h-7 rounded-full flex items-center justify-center text-white text-[10px] sm:text-xs font-bold border-2 border-white shadow-sm cursor-default"
                     style={{ backgroundColor: user.color }}
                     title={user.name}
                   >
                     {user.name.charAt(0).toUpperCase()}
                   </div>
                 ))}
-                {activeRemoteUsers > 5 && (
-                  <div className="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold border-2 border-white bg-gray-500 text-white">
-                    +{activeRemoteUsers - 5}
+                {activeRemoteUsers > 3 && (
+                  <div className="w-5 h-5 sm:w-7 sm:h-7 rounded-full flex items-center justify-center text-[10px] sm:text-xs font-bold border-2 border-white bg-gray-500 text-white">
+                    +{activeRemoteUsers - 3}
                   </div>
                 )}
               </div>
-              <span className="ml-2 text-sm text-gray-500">
+              <span className="ml-1.5 sm:ml-2 text-[10px] sm:text-sm text-gray-500 hidden sm:inline">
                 {activeRemoteUsers} other{activeRemoteUsers > 1 ? 's' : ''} editing
               </span>
             </div>
           )}
 
-          {/* Divider */}
-          <div className="h-4 w-px bg-gray-300" />
+          {/* Divider - hidden on mobile */}
+          <div className="hidden sm:block h-4 w-px bg-gray-300" />
           
           {/* Metrics Button */}
           <button
             onClick={handleShowMetrics}
-            className="px-3 py-1.5 text-sm font-medium rounded-md border border-gray-300 bg-white hover:bg-gray-50 transition-colors text-gray-700"
+            className="px-2 sm:px-3 py-1 sm:py-1.5 text-[10px] sm:text-sm font-medium rounded-md border border-gray-300 bg-white hover:bg-gray-50 transition-colors text-gray-700"
           >
-            Metrics
+            <span className="hidden sm:inline">Metrics</span>
+            <span className="sm:hidden">📊</span>
           </button>
 
           {/* Theme Toggle */}
           <button
             onClick={() => setDarkMode(!darkMode)}
-            className="px-3 py-1.5 text-sm font-medium rounded-md border border-gray-300 bg-white hover:bg-gray-50 transition-colors text-gray-700"
+            className="px-2 sm:px-3 py-1 sm:py-1.5 text-[10px] sm:text-sm font-medium rounded-md border border-gray-300 bg-white hover:bg-gray-50 transition-colors text-gray-700"
           >
-            {darkMode ? '☀️ Light Mode' : '🌙 Dark Mode'}
+            <span className="hidden sm:inline">{darkMode ? '☀️ Light Mode' : '🌙 Dark Mode'}</span>
+            <span className="sm:hidden">{darkMode ? '☀️' : '🌙'}</span>
           </button>
           
           {/* Connection Status */}
-          <div className={`text-sm px-3 py-1.5 rounded font-medium ${isConnected ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
-            {isConnected ? '● Connected' : '○ Disconnected'}
+          <div className={`text-[10px] sm:text-sm px-2 sm:px-3 py-1 sm:py-1.5 rounded font-medium ${isConnected ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
+            <span className="hidden sm:inline">{isConnected ? '● Connected' : '○ Disconnected'}</span>
+            <span className="sm:hidden">{isConnected ? '●' : '○'}</span>
+          </div>
           </div>
         </div>
       </div>
@@ -532,23 +540,22 @@ const EditorPage = () => {
       <div className="flex-1 flex overflow-hidden">
         {/* Editor Container - Google Docs Style */}
         <div className="flex-1 overflow-auto bg-gray-200 relative">
-          <div className="flex justify-center py-8">
+          <div className="flex justify-center py-2 sm:py-4 md:py-8 px-2 sm:px-4">
             <div 
-              className={`shadow-lg transition-all duration-300 relative ${
+              className={`shadow-lg transition-all duration-300 relative w-full md:w-auto ${
                 darkMode 
                   ? 'bg-gray-900' 
                   : 'bg-white'
               }`}
               style={{ 
-                width: '816px',
-                minHeight: '1056px',
-                maxWidth: '100%'
+                maxWidth: '816px',
+                minHeight: 'calc(100vh - 120px)'
               }}
             >
               {/* Cursor overlay - positioned absolutely over textarea */}
               <div 
                 ref={cursorOverlayRef}
-                className="absolute inset-0 pointer-events-none p-16 overflow-hidden"
+                className="absolute inset-0 pointer-events-none p-4 sm:p-8 md:p-16 overflow-hidden"
                 style={{ 
                   fontFamily: 'Arial, sans-serif',
                   fontSize: '11pt',
@@ -606,15 +613,15 @@ const EditorPage = () => {
                 onClick={handleSelect}
                 onKeyUp={handleSelect}
                 placeholder="Start typing your document..."
-                className={`w-full h-full p-16 text-base leading-relaxed resize-none focus:outline-none relative z-0 ${
+                className={`w-full h-full p-4 sm:p-8 md:p-16 text-sm sm:text-base leading-relaxed resize-none focus:outline-none relative z-0 ${
                   darkMode 
                     ? 'bg-gray-900 text-white placeholder-gray-500' 
                     : 'bg-white text-black placeholder-gray-400'
                 }`}
                 style={{ 
-                  minHeight: '1056px',
+                  minHeight: 'calc(100vh - 120px)',
                   fontFamily: 'Arial, sans-serif',
-                  fontSize: '11pt',
+                  fontSize: 'clamp(10pt, 2.5vw, 11pt)',
                   lineHeight: '1.5',
                   caretColor: darkMode ? 'white' : 'black'
                 }}
@@ -626,11 +633,11 @@ const EditorPage = () => {
       </div>
       {/* Metrics Modal */}
       {showMetrics && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className={`rounded-lg shadow-xl max-w-lg w-full mx-4 ${darkMode ? 'bg-gray-800' : 'bg-white'}`}>
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-2 sm:p-4">
+          <div className={`rounded-lg shadow-xl max-w-lg w-full mx-2 sm:mx-4 max-h-[90vh] overflow-y-auto ${darkMode ? 'bg-gray-800' : 'bg-white'}`}>
             {/* Modal Header */}
-            <div className={`flex items-center justify-between px-6 py-4 border-b ${darkMode ? 'border-gray-700' : 'border-gray-200'}`}>
-              <h2 className={`text-lg font-semibold ${darkMode ? 'text-white' : 'text-gray-900'}`}>
+            <div className={`flex items-center justify-between px-4 sm:px-6 py-3 sm:py-4 border-b ${darkMode ? 'border-gray-700' : 'border-gray-200'}`}>
+              <h2 className={`text-base sm:text-lg font-semibold ${darkMode ? 'text-white' : 'text-gray-900'}`}>
                   Server Metrics
               </h2>
               <button
@@ -644,54 +651,54 @@ const EditorPage = () => {
             </div>
 
             {/* Modal Body */}
-            <div className="px-6 py-4">
+            <div className="px-4 sm:px-6 py-3 sm:py-4">
               {metricsLoading ? (
-                <div className={`text-center py-8 ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+                <div className={`text-center py-6 sm:py-8 ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
                   Loading metrics...
                 </div>
               ) : metrics ? (
-                <div className="grid grid-cols-2 gap-4">
-                  <div className={`p-3 rounded-lg ${darkMode ? 'bg-gray-700' : 'bg-gray-50'}`}>
-                    <div className={`text-xs uppercase tracking-wide ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>Active Connections</div>
-                    <div className={`text-2xl font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}>{metrics.active_connections}</div>
+                <div className="grid grid-cols-2 gap-2 sm:gap-4">
+                  <div className={`p-2 sm:p-3 rounded-lg ${darkMode ? 'bg-gray-700' : 'bg-gray-50'}`}>
+                    <div className={`text-[10px] sm:text-xs uppercase tracking-wide ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>Connections</div>
+                    <div className={`text-lg sm:text-2xl font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}>{metrics.active_connections}</div>
                   </div>
-                  <div className={`p-3 rounded-lg ${darkMode ? 'bg-gray-700' : 'bg-gray-50'}`}>
-                    <div className={`text-xs uppercase tracking-wide ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>Active Rooms</div>
-                    <div className={`text-2xl font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}>{metrics.rooms_active}</div>
+                  <div className={`p-2 sm:p-3 rounded-lg ${darkMode ? 'bg-gray-700' : 'bg-gray-50'}`}>
+                    <div className={`text-[10px] sm:text-xs uppercase tracking-wide ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>Rooms</div>
+                    <div className={`text-lg sm:text-2xl font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}>{metrics.rooms_active}</div>
                   </div>
-                  <div className={`p-3 rounded-lg ${darkMode ? 'bg-gray-700' : 'bg-gray-50'}`}>
-                    <div className={`text-xs uppercase tracking-wide ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>Messages/sec</div>
-                    <div className={`text-2xl font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}>{metrics.messages_per_sec?.toFixed(2) || '0.00'}</div>
+                  <div className={`p-2 sm:p-3 rounded-lg ${darkMode ? 'bg-gray-700' : 'bg-gray-50'}`}>
+                    <div className={`text-[10px] sm:text-xs uppercase tracking-wide ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>Msg/sec</div>
+                    <div className={`text-lg sm:text-2xl font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}>{metrics.messages_per_sec?.toFixed(2) || '0.00'}</div>
                   </div>
-                  <div className={`p-3 rounded-lg ${darkMode ? 'bg-gray-700' : 'bg-gray-50'}`}>
-                    <div className={`text-xs uppercase tracking-wide ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>Total Messages</div>
-                    <div className={`text-2xl font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}>{metrics.total_messages?.toLocaleString() || '0'}</div>
+                  <div className={`p-2 sm:p-3 rounded-lg ${darkMode ? 'bg-gray-700' : 'bg-gray-50'}`}>
+                    <div className={`text-[10px] sm:text-xs uppercase tracking-wide ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>Messages</div>
+                    <div className={`text-lg sm:text-2xl font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}>{metrics.total_messages?.toLocaleString() || '0'}</div>
                   </div>
-                  <div className={`p-3 rounded-lg ${darkMode ? 'bg-gray-700' : 'bg-gray-50'}`}>
-                    <div className={`text-xs uppercase tracking-wide ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>P50 Latency</div>
-                    <div className={`text-2xl font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}>{metrics.p50_latency_ms?.toFixed(1) || '0'} ms</div>
+                  <div className={`p-2 sm:p-3 rounded-lg ${darkMode ? 'bg-gray-700' : 'bg-gray-50'}`}>
+                    <div className={`text-[10px] sm:text-xs uppercase tracking-wide ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>P50 Latency</div>
+                    <div className={`text-lg sm:text-2xl font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}>{metrics.p50_latency_ms?.toFixed(1) || '0'} ms</div>
                   </div>
-                  <div className={`p-3 rounded-lg ${darkMode ? 'bg-gray-700' : 'bg-gray-50'}`}>
-                    <div className={`text-xs uppercase tracking-wide ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>P95 Latency</div>
-                    <div className={`text-2xl font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}>{metrics.p95_latency_ms?.toFixed(1) || '0'} ms</div>
+                  <div className={`p-2 sm:p-3 rounded-lg ${darkMode ? 'bg-gray-700' : 'bg-gray-50'}`}>
+                    <div className={`text-[10px] sm:text-xs uppercase tracking-wide ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>P95 Latency</div>
+                    <div className={`text-lg sm:text-2xl font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}>{metrics.p95_latency_ms?.toFixed(1) || '0'} ms</div>
                   </div>
-                  <div className={`p-3 rounded-lg ${darkMode ? 'bg-gray-700' : 'bg-gray-50'}`}>
-                    <div className={`text-xs uppercase tracking-wide ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>Error Count</div>
-                    <div className={`text-2xl font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}>{metrics.error_count || 0}</div>
+                  <div className={`p-2 sm:p-3 rounded-lg ${darkMode ? 'bg-gray-700' : 'bg-gray-50'}`}>
+                    <div className={`text-[10px] sm:text-xs uppercase tracking-wide ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>Errors</div>
+                    <div className={`text-lg sm:text-2xl font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}>{metrics.error_count || 0}</div>
                   </div>
-                  <div className={`p-3 rounded-lg ${darkMode ? 'bg-gray-700' : 'bg-gray-50'}`}>
-                    <div className={`text-xs uppercase tracking-wide ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>Reconnects</div>
-                    <div className={`text-2xl font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}>{metrics.reconnect_count || 0}</div>
+                  <div className={`p-2 sm:p-3 rounded-lg ${darkMode ? 'bg-gray-700' : 'bg-gray-50'}`}>
+                    <div className={`text-[10px] sm:text-xs uppercase tracking-wide ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>Reconnects</div>
+                    <div className={`text-lg sm:text-2xl font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}>{metrics.reconnect_count || 0}</div>
                   </div>
-                  <div className={`p-3 rounded-lg col-span-2 ${darkMode ? 'bg-gray-700' : 'bg-gray-50'}`}>
-                    <div className={`text-xs uppercase tracking-wide ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>Uptime</div>
-                    <div className={`text-2xl font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}>
+                  <div className={`p-2 sm:p-3 rounded-lg col-span-2 ${darkMode ? 'bg-gray-700' : 'bg-gray-50'}`}>
+                    <div className={`text-[10px] sm:text-xs uppercase tracking-wide ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>Uptime</div>
+                    <div className={`text-lg sm:text-2xl font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}>
                       {metrics.uptime_seconds ? `${Math.floor(metrics.uptime_seconds / 3600)}h ${Math.floor((metrics.uptime_seconds % 3600) / 60)}m ${Math.floor(metrics.uptime_seconds % 60)}s` : '0s'}
                     </div>
                   </div>
-                  <div className={`p-3 rounded-lg col-span-2 ${darkMode ? 'bg-gray-700' : 'bg-gray-50'}`}>
-                    <div className={`text-xs uppercase tracking-wide ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>Total Document Size</div>
-                    <div className={`text-2xl font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}>
+                  <div className={`p-2 sm:p-3 rounded-lg col-span-2 ${darkMode ? 'bg-gray-700' : 'bg-gray-50'}`}>
+                    <div className={`text-[10px] sm:text-xs uppercase tracking-wide ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>Doc Size</div>
+                    <div className={`text-lg sm:text-2xl font-bold ${darkMode ? 'text-white' : 'text-gray-900'}`}>
                       {metrics.total_doc_size_bytes ? `${(metrics.total_doc_size_bytes / 1024).toFixed(2)} KB` : '0 KB'}
                     </div>
                   </div>
@@ -704,16 +711,16 @@ const EditorPage = () => {
             </div>
 
             {/* Modal Footer */}
-            <div className={`px-6 py-4 border-t flex justify-between ${darkMode ? 'border-gray-700' : 'border-gray-200'}`}>
+            <div className={`px-4 sm:px-6 py-3 sm:py-4 border-t flex justify-between ${darkMode ? 'border-gray-700' : 'border-gray-200'}`}>
               <button
                 onClick={fetchMetrics}
-                className={`px-4 py-2 text-sm font-medium rounded-md transition-colors ${darkMode ? 'bg-gray-700 text-gray-300 hover:bg-gray-600' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}
+                className={`px-3 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-sm font-medium rounded-md transition-colors ${darkMode ? 'bg-gray-700 text-gray-300 hover:bg-gray-600' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}
               >
                  Refresh
               </button>
               <button
                 onClick={() => setShowMetrics(false)}
-                className="px-4 py-2 text-sm font-medium rounded-md bg-blue-600 text-white hover:bg-blue-700 transition-colors"
+                className="px-3 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-sm font-medium rounded-md bg-blue-600 text-white hover:bg-blue-700 transition-colors"
               >
                 Close
               </button>

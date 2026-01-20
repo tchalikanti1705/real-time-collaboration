@@ -72,12 +72,12 @@ const LandingPage = () => {
   // Room selection step
   if (step === 'room') {
     return (
-      <div className="min-h-screen bg-white flex items-center justify-center">
-        <div className="w-full max-w-md p-8">
-          <h1 className="text-3xl font-bold text-center text-gray-900 mb-2">
+      <div className="min-h-screen bg-white flex items-center justify-center px-4 sm:px-6">
+        <div className="w-full max-w-md p-4 sm:p-8">
+          <h1 className="text-2xl sm:text-3xl font-bold text-center text-gray-900 mb-2">
             CoEdit
           </h1>
-          <p className="text-center text-gray-600 mb-8">Welcome, <span className="font-semibold">{userName}</span>!</p>
+          <p className="text-center text-gray-600 mb-6 sm:mb-8 text-sm sm:text-base">Welcome, <span className="font-semibold">{userName}</span>!</p>
 
           <div>
             <h2 className="text-lg font-semibold text-gray-800 mb-3">Enter Room ID</h2>
@@ -113,9 +113,9 @@ const LandingPage = () => {
 
   // Name input step (default)
   return (
-    <div className="min-h-screen bg-white flex items-center justify-center">
-      <div className="w-full max-w-md p-8">
-        <h1 className="text-3xl font-bold text-center text-gray-900 mb-10">
+    <div className="min-h-screen bg-white flex items-center justify-center px-4 sm:px-6">
+      <div className="w-full max-w-md p-4 sm:p-8">
+        <h1 className="text-2xl sm:text-3xl font-bold text-center text-gray-900 mb-6 sm:mb-10">
           CoEdit
         </h1>
 
