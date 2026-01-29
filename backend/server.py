@@ -17,7 +17,6 @@ from collections import defaultdict
 import time
 import statistics
 
-
 ROOT_DIR = Path(__file__).parent
 # Load .env file if it exists (for local development)
 env_file = ROOT_DIR / '.env'
