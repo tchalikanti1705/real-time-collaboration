@@ -846,7 +846,4 @@ Client A                        Server                         Client B
    │                               │                              │
 ```
 
----
 
-*Document Version: 1.0*  
-*Last Updated: December 26, 2025*
